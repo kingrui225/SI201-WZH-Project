@@ -1,0 +1,20 @@
+# SI 201 Final Project - WZH Project
+# Environment Variables Template
+# 
+# Instructions:
+# 1. Copy these values into your config.py file
+# 2. Replace the placeholder values with your actual API keys
+# 3. Never share your API keys publicly
+
+# Aviationstack API Key
+# Sign up at: https://aviationstack.com/signup/free
+AVIATIONSTACK_API_KEY=your_aviationstack_api_key_here
+
+# Weatherstack API Key
+# Sign up at: https://weatherstack.com/signup/free
+WEATHERSTACK_API_KEY=your_weatherstack_api_key_here
+
+# Marketstack API Key
+# Sign up at: https://marketstack.com/signup/free
+MARKETSTACK_API_KEY=your_marketstack_api_key_here
+
