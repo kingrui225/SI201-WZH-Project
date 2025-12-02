@@ -1,1 +1,1 @@
-# For zuming to test code
+# Scratch file for Zuming to quickly try code snippets
