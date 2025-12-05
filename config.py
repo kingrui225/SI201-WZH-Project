@@ -7,7 +7,7 @@ IMPORTANT: Replace the placeholder values with your actual API keys before runni
 
 # Aviationstack API Key (https://aviationstack.com/)
 # Used by: Ke Zhong
-AVIATIONSTACK_API_KEY = "YOUR_AVIATIONSTACK_API_KEY"
+AVIATIONSTACK_API_KEY = "b11f7ccfaa36c27915c676d1a4d2dda8"
 
 # Weatherstack API Key (https://weatherstack.com/)
 # Used by: Zuming Hu
