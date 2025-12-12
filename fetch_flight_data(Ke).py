@@ -43,13 +43,12 @@ def fetch_raw_flights_for_date(access_key, airport_code, record_date):
         return []
 
     base_url = "http://api.aviationstack.com/v1/flights"
-    date_str = record_date.strftime("%Y-%m-%d")
+
 
     params = {
-        'access_key': access_key,
-        'dep_iata': airport_code,
-        'flight_date': date_str,
-        'limit': 100
+        "access_key": access_key,
+        "dep_iata": airport_code,
+        "limit": 100
     }
 
     try:
@@ -57,17 +56,12 @@ def fetch_raw_flights_for_date(access_key, airport_code, record_date):
         response.raise_for_status()
         data = response.json()
 
-        if 'error' in data:
-            print(f"API error on {date_str}: {data['error']}")
-            return []
-
-        flights = data.get('data', [])
+        flights = data.get("data", [])
         return flights
 
     except requests.exceptions.RequestException as e:
-        print(f"Request failed for {date_str}: {e}")
+        print(f"Request failed: {e}")
         return []
-
 
 def save_to_db(db_path, airport_code, record_date, flights):
 
