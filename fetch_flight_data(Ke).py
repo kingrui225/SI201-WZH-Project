@@ -2,7 +2,7 @@ import requests
 import sqlite3
 import json
 from datetime import date, timedelta
-from config import AVIATIONSTACK_KEY
+from config import AVIATIONSTACK_API_KEY
 
 def create_db_table(db_path):
 
@@ -120,7 +120,7 @@ def fetch_flight_data(access_key, airport_code, db_path='flight_data.db'):
     create_db_table(db_path)
 
     start_date = date(2024, 1, 1)
-    end_date = date(2024, 12, 31)
+    end_date = date(2024, 1, 21)
 
     all_dates = get_date_list(start_date, end_date)
 
@@ -138,7 +138,7 @@ def fetch_flight_data(access_key, airport_code, db_path='flight_data.db'):
 
 
 if __name__ == "__main__":
-    API_KEY = AVIATIONSTACK_KEY
+    API_KEY = AVIATIONSTACK_API_KEY
     AIRPORT = "JFK"
 
     fetch_flight_data(API_KEY, AIRPORT)
