@@ -1,5 +1,9 @@
 import sqlite3
 
+
+DB_PATH = "flight_data.db"
+
+
 def process_flight_data(db_path='flight_data.db'):
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
@@ -48,3 +52,4 @@ def process_flight_data(db_path='flight_data.db'):
 
 if __name__ == "__main__":
     process_flight_data()
+    

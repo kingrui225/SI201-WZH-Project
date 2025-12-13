@@ -5,24 +5,41 @@ from datetime import date, timedelta
 from config import AVIATIONSTACK_API_KEY
 import time
 
-def create_db_table(db_path):
 
+def create_db_table(db_path):
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    
+
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS flight_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            airport_code TEXT,
-            record_date TEXT,
-            total_flights INTEGER,
-            delayed_flights INTEGER,
-            cancelled_flights INTEGER,
-            avg_delay_minutes REAL,
+            airport_code TEXT NOT NULL,
+            record_date TEXT NOT NULL,
+            flight_iata TEXT,
+            airline_name TEXT,
+            flight_status TEXT,
+            dep_delay_min INTEGER,
+            dep_scheduled TEXT,
+            dep_estimated TEXT,
+            dep_actual TEXT,
+            arr_iata TEXT,
             full_data_json TEXT,
-            UNIQUE(airport_code, record_date)
+            UNIQUE(airport_code, record_date, flight_iata)
         )
     ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS flight_fetch_progress (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            next_date TEXT NOT NULL,
+            next_offset INTEGER NOT NULL
+        )
+    ''')
+    cursor.execute('''
+        INSERT OR IGNORE INTO flight_fetch_progress (id, next_date, next_offset)
+        VALUES (1, '2025-09-20', 0)
+    ''')
+
     conn.commit()
     conn.close()
 
@@ -37,121 +54,139 @@ def get_date_list(start_date, end_date):
     return dates
 
 
-def fetch_raw_flights_for_date(access_key, airport_code, record_date):
-
+def fetch_raw_flights_for_date(access_key, airport_code, record_date, offset=0, limit=25):
     if not access_key:
-        print("Error: Missing AVIATIONSTACK_KEY in config or .env")
+        print("Error: Missing AVIATIONSTACK_API_KEY")
         return []
 
     base_url = "https://api.aviationstack.com/v1/flights"
-
     date_str = record_date.strftime("%Y-%m-%d")
 
     params = {
         "access_key": access_key,
         "dep_iata": airport_code,
         "flight_date": date_str,
-        "limit": 100
+        "limit": limit,
+        "offset": offset
     }
 
     try:
-        response = requests.get(base_url, params=params, timeout=10)
-        response.raise_for_status()
-        data = response.json()
+        resp = requests.get(base_url, params=params, timeout=20)
+        resp.raise_for_status()
+        data = resp.json()
 
-        print(f"[DEBUG] keys for {date_str}: {list(data.keys())}")
+        if isinstance(data, dict) and data.get("error"):
+            print(f"API error on {date_str}: {data.get('error')}")
+            return []
 
-        if "error" in data:
-            print(f"API error on {date_str}: {data['error']}")
-            return []
-        
-        flights = data.get("data", [])
-        if not flights:
-            print(f"[DEBUG] Empty data list on {date_str}, raw response: {data}")
-            return []
+        flights = data.get("data", []) if isinstance(data, dict) else []
+        print(f"[DEBUG] {date_str} offset={offset} pulled={len(flights)}")
 
         return flights
 
     except requests.exceptions.RequestException as e:
-        print(f"Request failed: {e}")
+        print(f"Request failed on {date_str} offset={offset}: {e}")
+        return []
+    except ValueError:
+        print(f"JSON decode failed on {date_str} offset={offset}. Raw text: {resp.text[:200] if 'resp' in locals() else ''}")
         return []
 
-def save_to_db(db_path, airport_code, record_date, flights):
 
+
+
+def save_to_db(db_path, airport_code, record_date, flights):
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
     date_str = record_date.strftime("%Y-%m-%d")
-
-    total_flights = len(flights)
-    delayed_flights = 0
-    cancelled_flights = 0
-    delays = []
-
+    rows = []
     for item in flights:
-        status = item.get('flight_status')
-        
-        if status == 'cancelled':
-            cancelled_flights += 1
-        
-        departure = item.get('departure', {})
-        delay_min = departure.get('delay')
-        if delay_min is not None:
-            delays.append(delay_min)
-            delayed_flights += 1
+        flight_iata = (item.get("flight") or {}).get("iata")
+        airline_name = (item.get("airline") or {}).get("name")
+        status = item.get("flight_status")
 
-    avg_delay_minutes = sum(delays) / len(delays) if delays else None
+        dep = item.get("departure") or {}
+        arr = item.get("arrival") or {}
 
-    full_json_str = json.dumps(flights)
+        rows.append((
+            airport_code,
+            date_str,
+            flight_iata,
+            airline_name,
+            status,
+            dep.get("delay"),
+            dep.get("scheduled"),
+            dep.get("estimated"),
+            dep.get("actual"),
+            arr.get("iata"),
+            json.dumps(item)
+        ))
 
-    try:
-        cursor.execute('''
-            INSERT OR REPLACE INTO flight_history
-            (airport_code, record_date, total_flights, delayed_flights,
-             cancelled_flights, avg_delay_minutes, full_data_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (airport_code, date_str, total_flights, delayed_flights,
-              cancelled_flights, avg_delay_minutes, full_json_str))
-    except Exception as e:
-        print(f"Error saving flights for {date_str}: {e}")
-    else:
-        print(f"Saved {total_flights} flights for {date_str} "
-              f"(delayed: {delayed_flights}, cancelled: {cancelled_flights})")
+    cursor.executemany('''
+        INSERT OR IGNORE INTO flight_history
+        (airport_code, record_date, flight_iata, airline_name, flight_status,
+         dep_delay_min, dep_scheduled, dep_estimated, dep_actual, arr_iata, full_data_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', rows)
 
+    inserted = cursor.rowcount
     conn.commit()
     conn.close()
+    print(f"Inserted {inserted} new flights for {date_str} (pulled {len(flights)})")
+    return inserted
 
-
-def fetch_flight_data(access_key, airport_code, db_path='flight_data.db'):
+def fetch_flight_data(access_key, airport_code, db_path='flight_data.db', items_per_run=25):
+    create_db_table(db_path)
 
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    cursor.execute("DROP TABLE IF EXISTS flight_history")
-    conn.commit()
+    cursor.execute("SELECT next_date, next_offset FROM flight_fetch_progress WHERE id=1")
+    next_date_str, next_offset = cursor.fetchone()
     conn.close()
-    create_db_table(db_path)
 
-    start_date = date(2024, 1, 1)
-    end_date = date(2024, 1, 11)
+    current_date = date.fromisoformat(next_date_str)
+    offset = next_offset
 
-    all_dates = get_date_list(start_date, end_date)
+    end_date = date(2025, 12, 10)
 
-    print(f"Starting 2024 flight fetch for {airport_code} ...")
+    print(f"Starting from {current_date.isoformat()}, offset={offset}, max={items_per_run} items...")
 
-    for d in all_dates:
-        print(f"Fetching flights for {airport_code} on {d.strftime('%Y-%m-%d')} ...")
-        flights = fetch_raw_flights_for_date(access_key, airport_code, d)
-        if not flights:
-            print("No flights returned or error occurred.")
-            continue
-        save_to_db(db_path, airport_code, d, flights)
-        time.sleep(1.5)
+    max_date_rolls = 7
+    rolls = 0
 
-    print("--- Done ---")
+    while rolls <= max_date_rolls:
+        if current_date > end_date:
+            print(f"Reached end date {end_date.isoformat()}. Stop fetching.")
+            return
 
+        flights = fetch_raw_flights_for_date(
+            access_key, airport_code, current_date, offset=offset, limit=items_per_run
+        )
+
+        if flights:
+            inserted = save_to_db(db_path, airport_code, current_date, flights)
+
+            next_day = current_date + timedelta(days=1)
+            offset = 0
+
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE flight_fetch_progress SET next_date=?, next_offset=? WHERE id=1",
+                (next_day.isoformat(), offset)
+            )
+            conn.commit()
+            conn.close()
+
+            print(f"Run done. Inserted {inserted}. Next: {next_day.isoformat()} offset=0. Re-run to continue.")
+            return
+
+        print(f"No flights for {current_date.isoformat()} at offset={offset}. Move to next day.")
+        current_date += timedelta(days=1)
+        offset = 0
+        rolls += 1
+
+    print("No flights returned after several date rollovers.")
 
 if __name__ == "__main__":
-    API_KEY = AVIATIONSTACK_API_KEY
-    AIRPORT = "JFK"
-
-    fetch_flight_data(API_KEY, AIRPORT)
+    fetch_flight_data(AVIATIONSTACK_API_KEY, "JFK")
