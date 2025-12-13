@@ -1,0 +1,54 @@
+======================================================================
+STOCK ANALYSIS RESULTS - SI 201 Final Project
+Calculated by: Ronghao Wang
+Generated: 2025-12-13 00:46:28
+======================================================================
+
+DATABASE SUMMARY
+----------------------------------------
+Database: stock_data.db
+Stock records: 48
+
+AIRLINES TABLE (INTEGER PRIMARY KEY)
+----------------------------------------
+  (Table not found)
+
+CALCULATED METRICS - AIRLINE COMPARISON
+----------------------------------------
+(Demonstrates JOIN: airlines.id → stock_history.airline_id)
+
+Airline: LUV (Unknown)
+  - Trading Days Analyzed: 12
+  - Average Daily Return: 0.4661%
+  - Average Volatility (Price Range): $0.6925
+
+Airline: UAL (Unknown)
+  - Trading Days Analyzed: 12
+  - Average Daily Return: 0.4369%
+  - Average Volatility (Price Range): $3.012
+
+Airline: AAL (Unknown)
+  - Trading Days Analyzed: 12
+  - Average Daily Return: 0.4207%
+  - Average Volatility (Price Range): $0.5124
+
+Airline: DAL (Unknown)
+  - Trading Days Analyzed: 12
+  - Average Daily Return: 0.1114%
+  - Average Volatility (Price Range): $1.6297
+
+SAMPLE STOCK RECORDS (First 10)
+----------------------------------------
+  Error retrieving records: no such table: airlines
+
+SUMMARY STATISTICS
+----------------------------------------
+  Total Records: 48
+  Overall Average Return: 0.3588%
+  Minimum Return (Worst Day): -3.7259%
+  Maximum Return (Best Day): 3.047%
+  Average Volatility: $1.4617
+
+======================================================================
+END OF REPORT
+======================================================================
