@@ -3,6 +3,7 @@ import sqlite3
 import json
 from datetime import date, timedelta
 from config import AVIATIONSTACK_API_KEY
+import time
 
 def create_db_table(db_path):
 
@@ -42,12 +43,14 @@ def fetch_raw_flights_for_date(access_key, airport_code, record_date):
         print("Error: Missing AVIATIONSTACK_KEY in config or .env")
         return []
 
-    base_url = "http://api.aviationstack.com/v1/flights"
+    base_url = "https://api.aviationstack.com/v1/flights"
 
+    date_str = record_date.strftime("%Y-%m-%d")
 
     params = {
         "access_key": access_key,
         "dep_iata": airport_code,
+        "flight_date": date_str,
         "limit": 100
     }
 
@@ -56,7 +59,17 @@ def fetch_raw_flights_for_date(access_key, airport_code, record_date):
         response.raise_for_status()
         data = response.json()
 
+        print(f"[DEBUG] keys for {date_str}: {list(data.keys())}")
+
+        if "error" in data:
+            print(f"API error on {date_str}: {data['error']}")
+            return []
+        
         flights = data.get("data", [])
+        if not flights:
+            print(f"[DEBUG] Empty data list on {date_str}, raw response: {data}")
+            return []
+
         return flights
 
     except requests.exceptions.RequestException as e:
@@ -111,10 +124,15 @@ def save_to_db(db_path, airport_code, record_date, flights):
 
 def fetch_flight_data(access_key, airport_code, db_path='flight_data.db'):
 
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute("DROP TABLE IF EXISTS flight_history")
+    conn.commit()
+    conn.close()
     create_db_table(db_path)
 
     start_date = date(2024, 1, 1)
-    end_date = date(2024, 1, 21)
+    end_date = date(2024, 1, 11)
 
     all_dates = get_date_list(start_date, end_date)
 
@@ -127,6 +145,7 @@ def fetch_flight_data(access_key, airport_code, db_path='flight_data.db'):
             print("No flights returned or error occurred.")
             continue
         save_to_db(db_path, airport_code, d, flights)
+        time.sleep(1.5)
 
     print("--- Done ---")
 
