@@ -65,6 +65,56 @@ def plot_wind_speed_vs_avg_delay(db_path=DB_PATH, output_file="wind_vs_delay.png
 
     print(f"Saved chart: {output_file} (points: {len(rows)})")
 
+def plot_avg_delay_by_date_bar(db_path=DB_PATH, output_file="avg_delay_by_date_bar.png", limit_days=30):
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+
+    if not table_exists(conn, "flight_history"):
+        print("Missing table: flight_history.")
+        conn.close()
+        return
+
+    query = """
+        SELECT
+            record_date,
+            AVG(CASE
+                    WHEN dep_delay_min IS NULL THEN NULL
+                    WHEN dep_delay_min < 0 THEN NULL
+                    ELSE dep_delay_min
+                END) AS avg_delay
+        FROM flight_history
+        WHERE record_date IS NOT NULL
+        GROUP BY record_date
+        ORDER BY record_date ASC
+    """
+
+    cur.execute(query)
+    rows = cur.fetchall()
+    conn.close()
+
+    if not rows:
+        print("No flight-only data returned.")
+        return
+
+
+    dates = [r[0][5:] for r in rows]
+    avg_delay = [r[1] if r[1] is not None else 0 for r in rows]
+
+    plt.figure(figsize=(10, 4))
+    plt.bar(dates, avg_delay)
+    plt.xlabel("Date")
+    plt.ylabel("Average Departure Delay (min)")
+    plt.title("Flight-only: Average Departure Delay by Date")
+    plt.xticks(rotation=60, ha="right")
+    plt.tight_layout()
+    plt.savefig(output_file, dpi=150)
+    plt.close()
+
+    print(f"Saved chart: {output_file} (days shown: {len(dates)})")
 
 if __name__ == "__main__":
+    # Flight-only bar chart
+    plot_avg_delay_by_date_bar()
+
+    # Weather vs Flight scatter
     plot_wind_speed_vs_avg_delay()
