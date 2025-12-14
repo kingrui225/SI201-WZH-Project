@@ -78,13 +78,13 @@ def fetch_weather_data(access_key, location, db_path='weather_data.db'):
     create_db_table(db_path)
     
     # set the date range: full year of 2024
-    start_date = date(2024, 1, 1)
-    end_date = date(2024, 12, 31)
+    start_date = date(2025, 1, 1)
+    end_date = date(2025, 12, 12)
     
     base_url = "http://api.weatherstack.com/historical"
     batch_size = 25 
     
-    print(f"Starting 2024 weather fetch for {location} ...")
+    print(f"Starting 2025 weather fetch for {location} ...")
     
     #get all date chunk pairs
     all_chunks = get_date_chunks(start_date, end_date, batch_size)
