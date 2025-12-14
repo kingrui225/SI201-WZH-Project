@@ -199,7 +199,7 @@ def process_stock_data(db_path=DATABASE_NAME):
     print(f"Tables: {tables}")
     
     if 'airlines' not in tables or 'stock_history' not in tables:
-        print("\n❌ Required tables not found. Run fetch_stock_data first!")
+        print("\n Required tables not found. Run fetch_stock_data first!")
         conn.close()
         return
     
@@ -209,7 +209,7 @@ def process_stock_data(db_path=DATABASE_NAME):
     print(f"Stock records: {count}")
     
     if count == 0:
-        print("\n❌ No data. Run fetch_stock_data first!")
+        print("\n No data. Run fetch_stock_data first!")
         conn.close()
         return
     
