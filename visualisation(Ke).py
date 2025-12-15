@@ -1,7 +1,7 @@
 import sqlite3
 import matplotlib.pyplot as plt
 
-DB_PATH = "flight_data.db"
+DB_PATH = "wzh_project.db"
 def table_exists(conn, table_name: str) -> bool:
     cur = conn.cursor()
     cur.execute("""

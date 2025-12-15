@@ -131,7 +131,7 @@ def fetch_stock_data(access_key, db_path=DATABASE_NAME, items_per_run=25):
     end_date = date(2024, 12, 31)
     
     if current_date > end_date:
-        print("\n✅ All 2024 data has been fetched!")
+        print("\n All 2024 data has been fetched!")
         conn.close()
         return
     
@@ -224,7 +224,7 @@ def fetch_stock_data(access_key, db_path=DATABASE_NAME, items_per_run=25):
     print(f"Total records: {total_records}")
     
     if total_records >= 100:
-        print("✅ 100+ records requirement MET!")
+        print(" 100+ records requirement MET!")
     else:
         print(f"⚠️ Need {100 - total_records} more. Run this script again!")
     print("=" * 60)
