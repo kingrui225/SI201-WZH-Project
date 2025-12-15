@@ -1,152 +1,89 @@
 import sqlite3
 import json
 import os
+from datetime import datetime
 
 def process_weather_data(db_path):
     # connect to database
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
-    # create target table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS processed_weather_data (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            location TEXT,
-            date TEXT,
-            avg_temp REAL,
-            min_temp REAL,
-            max_temp REAL,
-            total_precip_mm REAL,
-            total_snow_cm REAL,
-            avg_humidity INTEGER,
-            max_wind_speed INTEGER,
-            weather_desc TEXT,
-            sunrise TEXT,
-            sunset TEXT,
-            moon_phase TEXT,
-            uv_index INTEGER,
-            UNIQUE(location, date)
-        )
-    ''')
-    
     # get raw data
     try:
-        cursor.execute("SELECT location, full_data_json FROM weather_history")
-        raw_rows = cursor.fetchall()
-    except sqlite3.OperationalError:
-        print("Error: can't find 'weather_history' table.")
+        cursor.execute("SELECT record_date, full_data_json FROM weather_history ORDER BY record_date ASC")
+        rows = cursor.fetchall()
+    except Exception:
         conn.close()
         return
 
-    cleaned_rows = []
+    # dictionaries to store data
+    weekly_wind_speeds = {}
+    weekly_dates = {}
 
-    # process each row
-    for row_data in raw_rows:
-        location = row_data[0]
-        json_str = row_data[1]
+    # process rows
+    for row in rows:
+        date_str = row[0]
+        json_str = row[1]
         
         if not json_str:
             continue
             
         try:
-            data = json.loads(json_str)
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+            week_key = date_obj.strftime("%Y-Week%U")
             
-            date_str = data.get('date')
-            astro = data.get('astro', {})
+            # extract wind speeds
+            data = json.loads(json_str)
             hourly_list = data.get('hourly', [])
-
-            precip_values = []
-            humidity_values = []
-            wind_values = []
-            desc_values = []
             
             for h in hourly_list:
-                p = float(h.get('precip', 0))
-                hum = int(h.get('humidity', 0))
-                w = int(h.get('wind_speed', 0))
+                wind_speed = int(h.get('wind_speed', 0))
                 
-                precip_values.append(p)
-                humidity_values.append(hum)
-                wind_values.append(w)
-                
-                descs = h.get('weather_descriptions', [])
-                if len(descs) > 0:
-                    desc_values.append(descs[0])
-
-            # calculate statistics
-            total_precip = sum(precip_values)
-            
-            avg_humidity = 0
-            if len(humidity_values) > 0:
-                avg_humidity = round(sum(humidity_values) / len(humidity_values))
-                
-            max_wind = 0
-            if len(wind_values) > 0:
-                max_wind = max(wind_values)
-            
-            # find most common weather
-            counts = {}
-            for desc in desc_values:
-                if desc in counts:
-                    counts[desc] = counts[desc] + 1
+                if week_key in weekly_wind_speeds:
+                    weekly_wind_speeds[week_key].append(wind_speed)
                 else:
-                    counts[desc] = 1
-            
-            most_common_desc = "Unknown"
-            max_count = 0
-            
-            for desc in counts:
-                if counts[desc] > max_count:
-                    max_count = counts[desc]
-                    most_common_desc = desc
+                    weekly_wind_speeds[week_key] = [wind_speed]
 
-            new_row = (
-                location,
-                date_str,
-                data.get('avgtemp'),
-                data.get('mintemp'),
-                data.get('maxtemp'),
-                total_precip,
-                data.get('totalsnow'),
-                avg_humidity,
-                max_wind,
-                most_common_desc,
-                astro.get('sunrise'),
-                astro.get('sunset'),
-                astro.get('moon_phase'),
-                data.get('uv_index')
-            )
-            cleaned_rows.append(new_row)
-            
+            # record the date for this week
+            if week_key in weekly_dates:
+                weekly_dates[week_key].append(date_str)
+            else:
+                weekly_dates[week_key] = [date_str]
+                    
         except Exception:
             continue
 
-    # save data to database
-    count = 0
-    if len(cleaned_rows) > 0:
-        for row in cleaned_rows:
-            try:
-                cursor.execute('''
-                    INSERT OR REPLACE INTO processed_weather_data (
-                        location, date, 
-                        avg_temp, min_temp, max_temp, 
-                        total_precip_mm, total_snow_cm, avg_humidity, 
-                        max_wind_speed, weather_desc, 
-                        sunrise, sunset, moon_phase, uv_index
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', row)
-                count = count + 1
-            except Exception as e:
-                print(f"Insert error: {e}")
+    # write to text file
+    output_filename = "weekly_avg_wind_speed.txt"
+    
+    with open(output_filename, "w") as f:
+        # header
+        f.write(f"{'Week Range':<50} | {'Avg Wind Speed (km/h)':<20}\n")
+        f.write("-" * 75 + "\n")
         
-        conn.commit()
-        print(f"Successfully saved {count} rows into 'processed_weather_data'")
-    else:
-        print("No data generated.")
+        sorted_weeks = sorted(weekly_wind_speeds.keys())
+        
+        for week in sorted_weeks:
+            speeds = weekly_wind_speeds[week]
+            dates = weekly_dates[week]
+            
+            if len(speeds) > 0:
+                average_speed = sum(speeds) / len(speeds)
+                
+                # find start and end date for this week
+                dates.sort()
+                start_date = dates[0]
+                end_date = dates[-1]
+                
+                week_label = f"{week} ({start_date} to {end_date})"
+                
+                f.write(f"{week_label:<50} | {average_speed:.2f}\n")
 
     conn.close()
+    print(f"Done. Results saved to {output_filename}")
 
 if __name__ == "__main__":
     base_dir = os.path.dirname(os.path.abspath(__file__))
     DB_FILE = os.path.join(base_dir, "weather_data.db")
+    
     process_weather_data(DB_FILE)

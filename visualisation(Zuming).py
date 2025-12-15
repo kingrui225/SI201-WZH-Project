@@ -1,4 +1,5 @@
 import sqlite3
+import json
 import matplotlib.pyplot as plt
 import os
 
@@ -7,43 +8,74 @@ def visualize_weather_impact(db_path):
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
-    # query data
+    # query raw data directly from weather_history
     sql_query = """
-        SELECT date, max_wind_speed, total_precip_mm 
-        FROM processed_weather_data 
-        WHERE date BETWEEN '2025-09-20' AND '2025-12-10'
-        ORDER BY date ASC
+        SELECT record_date, full_data_json 
+        FROM weather_history 
+        WHERE record_date BETWEEN '2025-09-20' AND '2025-12-10'
+        ORDER BY record_date ASC
     """
     
     try:
         cursor.execute(sql_query)
         rows = cursor.fetchall()
-    except:
+    except Exception as e:
+        print(f"Database error: {e}")
         conn.close()
         return
 
     conn.close()
 
     if not rows:
+        print("No data found for the specified date range.")
         return
 
     dates = []
     wind_speeds = []
     severity_scores = []
 
-    # process data
+    # process raw json data
     for row in rows:
-        date_val = row[0]
-        wind_val = row[1] if row[1] else 0
-        precip_val = row[2] if row[2] else 0
+        date_str = row[0]
+        json_str = row[1]
         
-        score = (wind_val * 0.5) + (precip_val * 2.0)
-        
-        dates.append(date_val)
-        wind_speeds.append(wind_val)
-        severity_scores.append(score)
+        if not json_str:
+            continue
+            
+        try:
+            data = json.loads(json_str)
+            hourly_list = data.get('hourly', [])
+            
+            # calculate max wind speed and total precip for this day
+            daily_max_wind = 0
+            daily_total_precip = 0.0
+            
+            for h in hourly_list:
+                # get wind speed
+                w = int(h.get('wind_speed', 0))
+                if w > daily_max_wind:
+                    daily_max_wind = w
+                
+                # get precipitation
+                p = float(h.get('precip', 0.0))
+                daily_total_precip = daily_total_precip + p
+            
+            # calculate severity score
+            # Formula: (Wind * 0.5) + (Precip * 2.0)
+            score = (daily_max_wind * 0.5) + (daily_total_precip * 2.0)
+            
+            dates.append(date_str)
+            wind_speeds.append(daily_max_wind)
+            severity_scores.append(score)
+            
+        except Exception:
+            continue
 
     # create plot
+    if not dates:
+        print("No valid data to plot.")
+        return
+
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10))
 
     # plot wind speed
@@ -51,6 +83,8 @@ def visualize_weather_impact(db_path):
     ax1.set_title('Daily Max Wind Speed')
     ax1.set_ylabel('Wind Speed (km/h)')
     ax1.grid(axis='y', linestyle='--', alpha=0.5)
+    
+    # hide x labels for the top plot
     ax1.set_xticklabels([]) 
 
     # plot severity index
@@ -70,6 +104,7 @@ def visualize_weather_impact(db_path):
     # save figure
     output_filename = 'weather_severity_analysis.png'
     plt.savefig(output_filename)
+    print(f"Chart saved to {output_filename}")
 
 if __name__ == "__main__":
     base_dir = os.path.dirname(os.path.abspath(__file__))
