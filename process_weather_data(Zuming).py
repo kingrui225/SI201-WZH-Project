@@ -1,58 +1,50 @@
 import sqlite3
 import json
-from collections import Counter
+import os
 
 def process_weather_data(db_path):
-    """
-    Read the raw data, aggregate it by day, and store it in a new table.
-    """
+    # connect to database
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
-    # create Daily Cleaned Table (1 row = 1 day)
-    cursor.execute("DROP TABLE IF EXISTS daily_weather_summary")
+    # create target table
     cursor.execute('''
-        CREATE TABLE daily_weather_summary (
+        CREATE TABLE IF NOT EXISTS processed_weather_data (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             location TEXT,
             date TEXT,
-            
-            -- temperatures
             avg_temp REAL,
             min_temp REAL,
             max_temp REAL,
-            
-            -- precipitation & humidity from Hourly)
-            total_precip_mm REAL,  -- Total daily rainfall
-            total_snow_cm REAL,    -- Total daily snowfall
-            avg_humidity INTEGER,  -- Average daily humidity
-            
-            -- Wind
-            max_wind_speed INTEGER, -- Maximum wind speed for the day
-            
-            -- Weather description
+            total_precip_mm REAL,
+            total_snow_cm REAL,
+            avg_humidity INTEGER,
+            max_wind_speed INTEGER,
             weather_desc TEXT,
-            
-            -- astronomy
             sunrise TEXT,
             sunset TEXT,
             moon_phase TEXT,
-            uv_index INTEGER
+            uv_index INTEGER,
+            UNIQUE(location, date)
         )
     ''')
     
-    # read the raw JSON data
+    # get raw data
     try:
         cursor.execute("SELECT location, full_data_json FROM weather_history")
         raw_rows = cursor.fetchall()
     except sqlite3.OperationalError:
-        print("can't find 'weather_history'")
+        print("Error: can't find 'weather_history' table.")
+        conn.close()
         return
 
     cleaned_rows = []
 
-    # iterate and clean
-    for location, json_str in raw_rows:
+    # process each row
+    for row_data in raw_rows:
+        location = row_data[0]
+        json_str = row_data[1]
+        
         if not json_str:
             continue
             
@@ -61,7 +53,6 @@ def process_weather_data(db_path):
             
             date_str = data.get('date')
             astro = data.get('astro', {})
-            
             hourly_list = data.get('hourly', [])
 
             precip_values = []
@@ -70,26 +61,46 @@ def process_weather_data(db_path):
             desc_values = []
             
             for h in hourly_list:
-                # values calculation
-                precip_values.append(float(h.get('precip', 0)))
-                humidity_values.append(int(h.get('humidity', 0)))
-                wind_values.append(int(h.get('wind_speed', 0)))
+                p = float(h.get('precip', 0))
+                hum = int(h.get('humidity', 0))
+                w = int(h.get('wind_speed', 0))
                 
-                # descriptions
+                precip_values.append(p)
+                humidity_values.append(hum)
+                wind_values.append(w)
+                
                 descs = h.get('weather_descriptions', [])
-                if descs:
+                if len(descs) > 0:
                     desc_values.append(descs[0])
 
-            # calc daily statistics
+            # calculate statistics
             total_precip = sum(precip_values)
-            avg_humidity = round(sum(humidity_values) / len(humidity_values)) if humidity_values else 0
-            max_wind = max(wind_values) if wind_values else 0
+            
+            avg_humidity = 0
+            if len(humidity_values) > 0:
+                avg_humidity = round(sum(humidity_values) / len(humidity_values))
+                
+            max_wind = 0
+            if len(wind_values) > 0:
+                max_wind = max(wind_values)
+            
+            # find most common weather
+            counts = {}
+            for desc in desc_values:
+                if desc in counts:
+                    counts[desc] = counts[desc] + 1
+                else:
+                    counts[desc] = 1
+            
             most_common_desc = "Unknown"
-            if desc_values:
-                most_common_desc = Counter(desc_values).most_common(1)[0][0]
+            max_count = 0
+            
+            for desc in counts:
+                if counts[desc] > max_count:
+                    max_count = counts[desc]
+                    most_common_desc = desc
 
-            # build data row
-            row = (
+            new_row = (
                 location,
                 date_str,
                 data.get('avgtemp'),
@@ -105,31 +116,37 @@ def process_weather_data(db_path):
                 astro.get('moon_phase'),
                 data.get('uv_index')
             )
-            cleaned_rows.append(row)
+            cleaned_rows.append(new_row)
             
-        except json.JSONDecodeError:
-            print(f"JSON analysis error: {location}")
+        except Exception:
             continue
 
-    # save to database
-    if cleaned_rows:
-        cursor.executemany('''
-            INSERT INTO daily_weather_summary (
-                location, date, 
-                avg_temp, min_temp, max_temp, 
-                total_precip_mm, total_snow_cm, avg_humidity, 
-                max_wind_speed, weather_desc, 
-                sunrise, sunset, moon_phase, uv_index
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', cleaned_rows)
+    # save data to database
+    count = 0
+    if len(cleaned_rows) > 0:
+        for row in cleaned_rows:
+            try:
+                cursor.execute('''
+                    INSERT OR REPLACE INTO processed_weather_data (
+                        location, date, 
+                        avg_temp, min_temp, max_temp, 
+                        total_precip_mm, total_snow_cm, avg_humidity, 
+                        max_wind_speed, weather_desc, 
+                        sunrise, sunset, moon_phase, uv_index
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', row)
+                count = count + 1
+            except Exception as e:
+                print(f"Insert error: {e}")
         
         conn.commit()
-        print(f"saved {len(cleaned_rows)} rows into 'daily_weather_summary'")
+        print(f"Successfully saved {count} rows into 'processed_weather_data'")
     else:
-        print("!!!no data generated!!!")
+        print("No data generated.")
 
     conn.close()
 
 if __name__ == "__main__":
-    DB_FILE = "weather_data.db"
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    DB_FILE = os.path.join(base_dir, "weather_data.db")
     process_weather_data(DB_FILE)
