@@ -226,7 +226,7 @@ def fetch_stock_data(access_key, db_path=DATABASE_NAME, items_per_run=100):
     if total_records >= 100:
         print(" 100+ records requirement MET!")
     else:
-        print(f"⚠️ Need {100 - total_records} more. Run this script again!")
+        print(f" Need {100 - total_records} more. Run this script again!")
     print("=" * 60)
 
 
