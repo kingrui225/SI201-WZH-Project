@@ -15,7 +15,7 @@ WEATHERSTACK_API_KEY = "1c71ada038989e8ac8968fa83d282c30"
 
 # Marketstack API Key (https://marketstack.com/)
 # Used by: Ronghao Wang
-MARKETSTACK_API_KEY = "4b930d56d6d106260b59649118da5669"
+MARKETSTACK_API_KEY = "89cc90f9de82f0d097f9958bccd9c014"
 
 # Database Configuration
 DATABASE_NAME = "wzh_project.db"

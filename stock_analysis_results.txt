@@ -1,53 +1,64 @@
 ======================================================================
 STOCK ANALYSIS RESULTS - SI 201 Final Project
 Calculated by: Ronghao Wang
-Generated: 2025-12-13 00:46:28
+Generated: 2025-12-15 21:38:17
 ======================================================================
 
-DATABASE SUMMARY
-----------------------------------------
-Database: stock_data.db
-Stock records: 48
+DATABASE STRUCTURE (Two tables with INTEGER key)
+--------------------------------------------------
+Table 1: airlines
+  - id (INTEGER PRIMARY KEY)
+  - symbol (TEXT)
+  - name (TEXT)
 
-AIRLINES TABLE (INTEGER PRIMARY KEY)
-----------------------------------------
-  (Table not found)
+Table 2: stock_history
+  - airline_id (INTEGER) -> REFERENCES airlines(id)
+  - record_date, prices, etc.
 
-CALCULATED METRICS - AIRLINE COMPARISON
-----------------------------------------
-(Demonstrates JOIN: airlines.id → stock_history.airline_id)
+AIRLINES TABLE DATA
+--------------------------------------------------
+  ID: 1, Symbol: JBLU, Name: JetBlue Airways
+  ID: 2, Symbol: DAL, Name: Delta Air Lines
+  ID: 3, Symbol: AAL, Name: American Airlines
+  ID: 4, Symbol: UAL, Name: United Airlines
 
-Airline: LUV (Unknown)
-  - Trading Days Analyzed: 12
-  - Average Daily Return: 0.4661%
-  - Average Volatility (Price Range): $0.6925
+TOTAL STOCK RECORDS: 200
+✓ 100+ records requirement MET!
 
-Airline: UAL (Unknown)
-  - Trading Days Analyzed: 12
-  - Average Daily Return: 0.4369%
-  - Average Volatility (Price Range): $3.012
+CALCULATED METRICS (JOIN: airlines.id -> stock_history.airline_id)
+--------------------------------------------------
 
-Airline: AAL (Unknown)
-  - Trading Days Analyzed: 12
-  - Average Daily Return: 0.4207%
-  - Average Volatility (Price Range): $0.5124
+JBLU - JetBlue Airways
+  Airline ID: 1
+  Trading Days: 50
+  Average Return: 0.5351%
+  Best Day: 8.5294%
+  Worst Day: -6.4%
+  Avg Volatility: $0.3309
 
-Airline: DAL (Unknown)
-  - Trading Days Analyzed: 12
-  - Average Daily Return: 0.1114%
-  - Average Volatility (Price Range): $1.6297
+DAL - Delta Air Lines
+  Airline ID: 2
+  Trading Days: 50
+  Average Return: 0.3297%
+  Best Day: 3.5504%
+  Worst Day: -4.1843%
+  Avg Volatility: $1.0053
 
-SAMPLE STOCK RECORDS (First 10)
-----------------------------------------
-  Error retrieving records: no such table: airlines
+UAL - United Airlines
+  Airline ID: 4
+  Trading Days: 50
+  Average Return: 0.1399%
+  Best Day: 4.5204%
+  Worst Day: -6.5539%
+  Avg Volatility: $1.2658
 
-SUMMARY STATISTICS
-----------------------------------------
-  Total Records: 48
-  Overall Average Return: 0.3588%
-  Minimum Return (Worst Day): -3.7259%
-  Maximum Return (Best Day): 3.047%
-  Average Volatility: $1.4617
+AAL - American Airlines
+  Airline ID: 3
+  Trading Days: 50
+  Average Return: 0.0192%
+  Best Day: 5.8193%
+  Worst Day: -5.6688%
+  Avg Volatility: $0.4492
 
 ======================================================================
 END OF REPORT

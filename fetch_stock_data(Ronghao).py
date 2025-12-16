@@ -100,11 +100,11 @@ def get_airline_id(cursor, symbol):
     return result[0] if result else None
 
 
-def fetch_stock_data(access_key, db_path=DATABASE_NAME, items_per_run=25):
+def fetch_stock_data(access_key, db_path=DATABASE_NAME, items_per_run=100):
     """
-    Fetch stock data - saves MAX 25 ITEMS per execution.
+    Fetch stock data - saves MAX 100 ITEMS per execution.
     
-    Run this multiple times to get 100+ records.
+    With premium API, fetches 100+ records in one run.
     """
     create_tables(db_path)
     
